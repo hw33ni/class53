@@ -47,7 +47,7 @@ void threadRecvFunc(void* arg)
     while(1)
     {
         if(recv(sd, rbuf, sizeof(rbuf), 0) < 0) continue;
-        if(*rbuf != 0) puts(buf);
+        if(*rbuf != 0) puts(rbuf);
         MEMSET0(rbuf);
     }
 
@@ -61,7 +61,7 @@ void chatClient()
     char sbuf[MAX_BUF] = {0}; 
 
     pthread_t tid;
-    pthread_create(&tid, NULL, (void*(*)(void*))recv_func, NULL);
+    pthread_create(&tid, NULL, (void*(*)(void*))threadRecvFunc, NULL);
     
     send(sd, nickname, strlen(nickname), 0);
 

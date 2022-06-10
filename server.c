@@ -3,8 +3,8 @@
 #define MAX_CLIENT 5
 #define MAX_SERBUF 100
 
-struct sockaddr_in addr;
-socklen_t addrLen;
+struct sockaddr_in saddr;
+socklen_t saddrLen;
 
 // descripter identification number of server socket, and accepted server socket
 int sd, sdaccept, clientNum = 0; 
@@ -18,9 +18,10 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 typedef struct _threadArg
 {
     int idx;
-    struct sockaddr_in cAddr;
+    struct sockaddr_in caddr;
 }clientArg;
 
+clientArg ca;
 
 void usage()
 {
@@ -50,11 +51,11 @@ int initSocket(struct sockaddr_in *_addr, char* _portString)
     } // ref. https://linux.die.net/man/3/strtol
 
     // address family internet set to IPv4
-    addr.sin_family = AF_INET; 
+    saddr.sin_family = AF_INET; 
     // convert arbitary IP(0.0.0.0) from host order to network order (long type)
-    addr.sin_addr.s_addr = htonl(INADDR_ANY); 
+    saddr.sin_addr.s_addr = htonl(INADDR_ANY); 
     // convert port number from host order to network order (short type)
-    addr.sin_port = htons(_portNum);
+    saddr.sin_port = htons(_portNum);
 
     return SUCC; // init success
 }
@@ -72,8 +73,8 @@ void broadcast(int idx, char* str, int len)
 void disconnectClient(int index)
 {
     pthread_mutex_lock(&mutex);
-    close(clientArr[ca.index]);
-    clientArr[ca.index] = -1;
+    close(clientArr[index]);
+    clientArr[index] = -1;
     clientNum--;
     pthread_mutex_unlock(&mutex);
     return;
@@ -83,11 +84,11 @@ void disconnectClient(int index)
 void serverThread(void* arg)
 {
     char clientNickname[MAX_BUF] = {0};
-    char sbuf[MAX_BUF] = {0}, cbuf[MAX_BUF] = {0} //server, client buffer 
+    char sbuf[MAX_BUF] = {0}, cbuf[MAX_BUF] = {0}; //server, client buffer 
 
     clientArg ca = *(clientArg*)arg;
     
-    printf("Connection From %s:%d\n", inet_ntoa(ca.addr.sin_addr), ntohs(ca.addr.sin_port));
+    printf("Connection From %s:%d\n", inet_ntoa(ca.caddr.sin_addr), ntohs(ca.caddr.sin_port));
     recv(clientArr[ca.idx], clientNickname, MAX_BUF, 0); // recv nickname
 
     snprintf(sbuf, MAX_BUF, "%s is connected", clientNickname);
@@ -100,7 +101,7 @@ void serverThread(void* arg)
         MEMSET0(sbuf); // make server message
         MEMSET0(cbuf); // recv client's message
 
-        if(recvMsg(ClientArr[ca.idx], cbuf, MAX_LEN) == SUCC){
+        if(recvMsg(clientArr[ca.idx], cbuf, MAX_BUF) == SUCC){
             flag = ENDC;
             snprintf(sbuf, MAX_BUF, "%s is disconnected", clientNickname);
         } else {
@@ -111,7 +112,7 @@ void serverThread(void* arg)
         puts(sbuf);
 
         if(flag == ENDC) {
-            disconnectClient(idx);
+            disconnectClient(ca.idx);
             break;
         }
     }
@@ -175,15 +176,13 @@ int main(int argc, char** argv)
     if(sd == -1) perror("socket def error"); // fail to create socket
 
     // initialize socket address and catch error
-    if(initSocket(&addr, argv[1]) == FAIL) perror("socket init error");
+    if(initSocket(&saddr, argv[1]) == FAIL) perror("socket init error");
 
     // bind socket with IP and port number, and catch error
-    if(bind(sd, (struct sockaddr*) &addr, sizeof(addr)) < 0) perror("socket bind error");
+    if(bind(sd, (struct sockaddr*) &saddr, sizeof(saddr)) < 0) perror("socket bind error");
 
     // make server socket to listening mode to response client's connect request
     if(listen(sd, MAX_CLIENT) < 0) perror("socket listen error");
-
-    clientArg ca;
 
     while(1)
     {
@@ -195,7 +194,7 @@ int main(int argc, char** argv)
         }
         pthread_mutex_unlock(&mutex);
 
-        sdaccept = accept(sd, (struct sockaddr*) &addr, (socklen_t*) &addrLen);
+        sdaccept = accept(sd, (struct sockaddr*) &saddr, (socklen_t*) &saddrLen);
 
         pthread_mutex_lock(&mutex);
         if(sdaccept == -1) {
@@ -212,7 +211,7 @@ int main(int argc, char** argv)
             }
         }
         pthread_mutex_unlock(&mutex);
-        ca.client_addr = addr;
+        ca.caddr = saddr;
         pthread_create(tid+ca.idx, NULL, (void*(*)(void*))serverThread, (void*)&ca);
     }
     return 0;
