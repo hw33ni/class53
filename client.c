@@ -62,12 +62,12 @@ void chatClient()
 
     pthread_t tid;
     pthread_create(&tid, NULL, (void*(*)(void*))threadRecvFunc, NULL);
-    
-    send(sd, nickname, strlen(nickname), 0);
+
+    send(sd, nickname, sizeof(nickname), 0);
 
     while(1)
     {
-        if(sendMsg(sd, sbuf, sizeof(sbuf)) == SUCC){
+        if(sendMsg(sd, sbuf, sizeof(sbuf)) == ENDC){
             printf("%s is disconnected\n", nickname);
             break;
         }
@@ -75,42 +75,6 @@ void chatClient()
     }
     pthread_cancel(tid);
 
-
-
-
-
-
-    // while(1)
-    // {
-    //     // receive messege from terminal and save buffer length
-    //     int sbufLen = read(0, sbuf, MAX_BUF); 
-    //     if(sbufLen < 0) perror("client input error"); //read fail
-    //     //send buffer to accepted server socket
-    //     if(send(sd, sbuf, sbufLen, 0) == -1) perror("client send fail"); 
-        
-    //     sbuf[--sbufLen] = 0; 
-        
-    //     if(detect_quit(sbuf, sbufLen) == ENDC){ 
-    //         printf("Disconnected\n");
-    //         break; //end loop
-    //     }
-
-    //     // receive buffer from accepted server socket
-    //     if(recv(sd, rbuf, MAX_BUF, 0) == -1) perror("client recv fail"); 
-    //     int rbufLen = strlen(rbuf); //save buffer length
-    //     //delete newline character and decrease buffer length parameter
-    //     rbuf[--rbufLen] = 0; 
-    //     printf("%s\n", rbuf); 
-    //     // check buffer equal to "QUIT"
-    //     if(detect_quit(rbuf, rbufLen) == ENDC){ 
-    //         printf("Disconnected\n");    
-    //         break; //end loop
-    //     }
-
-    //     memset(sbuf,0,MAX_BUF); // initialize send buffer
-    //     memset(rbuf,0,MAX_BUF); // initialize receive buffer
-    // }
-    
 }
 
 int main(int argc, char** argv)
@@ -119,12 +83,13 @@ int main(int argc, char** argv)
     // argument should be filename, IP and Port number
     if(argc != 4) usage(); 
 
-    sd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); // create socket
+    sd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP); // create socket
     if(sd == -1) perror("socket create error"); // fail to create socket
 
     // initialize socket address and catch error
     if(initSocket(&addr, argv[1], argv[2], argv[3]) == FAIL) perror("socket init error"); 
-    
+
+
     // make connection with server socket and catch error
     if(connect(sd, (struct sockaddr *) &addr, sizeof(addr)) != SUCC) perror("socket connect error"); 
 

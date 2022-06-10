@@ -28,7 +28,7 @@
 #define FAIL 1
 #define ENDC 2
 
-#define MAX_BUF 256 // set MAX size of buffer
+#define MAX_BUF 100 // set MAX size of buffer
 
 #define MEMSET0(x) memset(x, 0, sizeof(x))
 #define MEMSETn(x) memset(x, -1, sizeof(x))
