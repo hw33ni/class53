@@ -33,18 +33,11 @@
 #define MEMSET0(x) memset(x, 0, sizeof(x))
 #define MEMSETn(x) memset(x, -1, sizeof(x))
 
-/*
-function detect_quit:
-    to detect terminate message "QUIT" in buffer
-    dismiss buffer which length not equal to 4
-    use strncmp to prevent BOF
 
-return: ENDC(match terminate messege), SUCC(otherwise)
-*/
 int sendMsg(int fd, char* buf, int maxLen)
 {
 
-    fgets(buf, maxLen, stdin); //
+    fgets(buf, maxLen, stdin);
     send(fd, buf, maxLen, 0);
 
     int len = strlen(buf);

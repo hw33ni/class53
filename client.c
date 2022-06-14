@@ -42,12 +42,13 @@ int initSocket(struct sockaddr_in *_addr, char* _ipString, char* _portString, ch
 
 void threadRecvFunc(void* arg)
 {
+    //set buffer to receive message
     char rbuf[MAX_BUF] = {0};
 
     while(1)
     {
-        if(recv(sd, rbuf, sizeof(rbuf), 0) < 0) continue;
-        if(*rbuf != 0) puts(rbuf);
+        if(recv(sd, rbuf, sizeof(rbuf), 0) < 0) continue; // invaild recv
+        if(*rbuf != 0) puts(rbuf); // check null message
         MEMSET0(rbuf);
     }
 
@@ -57,13 +58,12 @@ void threadRecvFunc(void* arg)
 
 void chatClient()
 {
-    // set buffer responsible for sending.
+    // set buffer to send message
     char sbuf[MAX_BUF] = {0}; 
 
+    // create receiving thread
     pthread_t tid;
     pthread_create(&tid, NULL, (void*(*)(void*))threadRecvFunc, NULL);
-
-    send(sd, nickname, sizeof(nickname), 0);
 
     while(1)
     {
@@ -73,6 +73,8 @@ void chatClient()
         }
         MEMSET0(sbuf);
     }
+    
+    //terminate thread when connection is closed
     pthread_cancel(tid);
 
 }
@@ -93,9 +95,12 @@ int main(int argc, char** argv)
     // make connection with server socket and catch error
     if(connect(sd, (struct sockaddr *) &addr, sizeof(addr)) != SUCC) perror("socket connect error"); 
 
+    // send nickname to server
+    send(sd, nickname, sizeof(nickname), 0);
+
     printf("%s is Connected\n", nickname);
 
-    chatClient(); // chat sequence to server
+    chatClient(); // chatting
     
-    close(sd); // close socket after chat sequence
+    close(sd); // close socket when chatting is terminated
 }

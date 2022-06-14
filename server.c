@@ -59,17 +59,20 @@ int initSocket(struct sockaddr_in *_addr, char* _portString)
     return SUCC; // init success
 }
 
-//send message to connected client
+//send received message to other connected client
 void broadcast(int index, char* str, int len)
 {
     pthread_mutex_lock(&mutex);
     for(int i = 0;i < MAX_CLIENT;i++){
-        if(i == index || clientArr[i] == -1) continue; // not connected
+        // not connected or client myself case  
+        if(i == index || clientArr[i] == -1) continue;
         send(clientArr[i], str, len, 0);
     }
     pthread_mutex_unlock(&mutex);// critical error fixed.........
+    return;
 }
 
+// disconnect client process
 void disconnectClient(int index)
 {
     pthread_mutex_lock(&mutex);
@@ -80,39 +83,42 @@ void disconnectClient(int index)
     return;
 }
 
-
+//thread start routine function
 void serverThread(void* arg)
 {
+    
     char clientNickname[MAX_BUF] = {0};
-    //send from server, receive from client buffer 
+    // make server message to broadcast, recv client's message
     char sbuf[MAX_BUF] = {0}, cbuf[MAX_BUF] = {0}; 
 
     clientArg ca = *(clientArg*)arg;
     
     printf("Connection From %s:%d\n", inet_ntoa(ca.caddr.sin_addr), ntohs(ca.caddr.sin_port));
+    //receive client's nickname
     recv(clientArr[ca.idx], clientNickname, MAX_BUF, 0); // recv nickname
+    
+    //make server message to broadcast
     snprintf(sbuf, MAX_BUF, "%s is connected", clientNickname);
     broadcast(ca.idx, sbuf, strlen(sbuf));
     puts(sbuf);
 
-    int flag = SUCC;
     while(1)
     {
-        MEMSET0(sbuf); // make server message
-        MEMSET0(cbuf); // recv client's message
+        //initialize buffer
+        MEMSET0(sbuf);
+        MEMSET0(cbuf);
 
-        if(recvMsg(clientArr[ca.idx], cbuf, MAX_BUF) == ENDC){
-            flag = ENDC;
+        // broadcast received message to other client and check terminate
+        if(recvMsg(clientArr[ca.idx], cbuf, MAX_BUF) == ENDC){ //terminate
             snprintf(sbuf, MAX_BUF, "%s is disconnected", clientNickname);
-        } else {
-            snprintf(sbuf, MAX_BUF, "%s: %s", clientNickname, cbuf);
-        }
-
-        broadcast(ca.idx, sbuf, sizeof(sbuf));
-        puts(sbuf);
-        if(flag == ENDC) {
+            broadcast(ca.idx, sbuf, sizeof(sbuf));
+            puts(sbuf);
             disconnectClient(ca.idx);
             break;
+        } else {
+            snprintf(sbuf, MAX_BUF, "%s: %s", clientNickname, cbuf);
+            broadcast(ca.idx, sbuf, sizeof(sbuf));
+            puts(sbuf);
         }
     }
 }
@@ -144,10 +150,12 @@ int main(int argc, char** argv)
     // make server socket to listening mode to response client's connect request
     if(listen(sd, MAX_CLIENT) < 0) perror("socket listen error");
 
+    //client's structure
     clientArg ca;
     caddrLen = sizeof(caddr);
     while(1)
     {
+        if(clientNum == MAX_CLIENT) continue; // number of client cannot exceed 5
         pthread_mutex_lock(&mutex);
         if(clientNum < MAX_CLIENT) clientNum++;
         else {
@@ -159,12 +167,13 @@ int main(int argc, char** argv)
         sdaccept = accept(sd, (struct sockaddr*) &caddr, &caddrLen);
 
         pthread_mutex_lock(&mutex);
-        if(sdaccept == -1) {
+        if(sdaccept == -1) { // invalid client accept
             clientNum--;
             pthread_mutex_unlock(&mutex);
             continue;
         }
         
+        // find empty client arr and insert accepted client
         for(int i = 0;i < MAX_CLIENT;i++) {
             if(clientArr[i] == -1) {
                 ca.idx = i;
