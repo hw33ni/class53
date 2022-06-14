@@ -127,7 +127,7 @@ void serverThread(void* arg)
 
 int main(int argc, char** argv)
 {
-
+    // set array value -1
     MEMSETn(clientArr);
 
     // argument should be filename and port number
@@ -138,11 +138,6 @@ int main(int argc, char** argv)
 
     // initialize socket address and catch error
     if(initSocket(&saddr, argv[1]) == FAIL) perror("socket init error");
-
-    // saddr.sin_family = AF_INET;
-    // uint16_t pn = atoi(argv[1]);
-	// saddr.sin_port = htons(pn);
-	// saddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     // bind socket with IP and port number, and catch error
     if(bind(sd, (struct sockaddr*) &saddr, sizeof(saddr)) < 0) perror("socket bind error");
@@ -155,25 +150,28 @@ int main(int argc, char** argv)
     caddrLen = sizeof(caddr);
     while(1)
     {
-        if(clientNum == MAX_CLIENT) continue; // number of client cannot exceed 5
+        // number of client cannot exceed 5
         pthread_mutex_lock(&mutex);
-        if(clientNum < MAX_CLIENT) clientNum++;
+        if(clientNum < MAX_CLIENT) {
+            clientNum++;
+            pthread_mutex_unlock(&mutex);
+        }
         else {
             pthread_mutex_unlock(&mutex);
             continue;
         }
-        pthread_mutex_unlock(&mutex);
 
         sdaccept = accept(sd, (struct sockaddr*) &caddr, &caddrLen);
 
-        pthread_mutex_lock(&mutex);
         if(sdaccept == -1) { // invalid client accept
+            pthread_mutex_lock(&mutex);
             clientNum--;
             pthread_mutex_unlock(&mutex);
             continue;
         }
         
         // find empty client arr and insert accepted client
+        pthread_mutex_lock(&mutex);
         for(int i = 0;i < MAX_CLIENT;i++) {
             if(clientArr[i] == -1) {
                 ca.idx = i;
@@ -182,6 +180,7 @@ int main(int argc, char** argv)
             }
         }
         pthread_mutex_unlock(&mutex);
+        
         ca.caddr = caddr;
         pthread_create(tid+ca.idx, NULL, (void*(*)(void*))serverThread, (void*)&ca);
     }
